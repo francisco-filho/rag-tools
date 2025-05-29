@@ -1,0 +1,78 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.Python
+build/
+dist/
+
+# Virtual environment
+.venv/
+venv/
+env/
+/htmlcov/
+.tox/
+.coverage
+.coverage.*
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_results/
+
+# Distribution / packaging
+.Python
+*.egg
+*.whl
+*.mo
+*.pot
+*.log
+.installed.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+.venv
+.env
+
+# Editors and IDEs
+.idea/                  # JetBrains IDEs (PyCharm, IntelliJ, etc.)
+*.iml                   # JetBrains project files
+.vscode/                # VS Code
+.vscode-test/
+.history/               # VS Code Local History
+.DS_Store               # macOS
+.Trashes                # macOS
+Thumbs.db               # Windows
+ehthumbs.db             # Windows
+*.sublime-project       # Sublime Text
+*.sublime-workspace     # Sublime Text
+*.swp                   # Vim swap files
+*.swo                   # Vim swap files
+
+# Specific to Python development
+*.sqlite3               # Django/Flask default SQLite database
+*.db                    # Generic database files
+celerybeat-schedule     # Celery beat schedule file
+.ipynb_checkpoints      # Jupyter Notebook checkpoints
+profile_output.txt      # Common profiling output
+.mypy_cache/            # Mypy static type checker cache
+.ruff_cache/            # Ruff linter cache
+.dvc/                   # DVC (Data Version Control)
+.terraform/             # Terraform state files
+
+# Environment variables
+.env
+.flaskenv
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Miscellaneous
+*.log
+*.bak
+*.tmp
