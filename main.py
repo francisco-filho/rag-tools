@@ -4,11 +4,14 @@ import pypdf
 import psycopg
 from tqdm import tqdm
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 DB_HOST = "127.0.0.1"
 DB_NAME = "rag_tools"
 DB_USER = "rag_tools"
-DB_PASSWORD = "12345678"
+DB_PASSWORD = os.getenv("PG_PASSWORD")
 DB_PORT = "5432"
 
 def read_pdf(file_path):

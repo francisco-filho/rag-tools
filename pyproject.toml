@@ -5,14 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "dotenv>=0.9.9",
     "psycopg[binary]>=3.2.9",
     "pypdf>=5.5.0",
-    "pytest>=8.3.5",
-    "reportlab>=4.4.1",
     "tqdm>=4.67.1",
 ]
 
 [tool.uv.workspace]
 members = [
     "rag-tools",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "reportlab>=4.4.1",
 ]
