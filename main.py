@@ -40,6 +40,7 @@ def read_pdf(file_path):
                 if text is None:
                     text = ""
 
+                # postgresql does not accept this 'null' character
                 text = text.replace("\x00", "\ufffd")
                 
                 num_characters = len(text)
@@ -74,68 +75,52 @@ def store_documents(file_name, pages):
                       (from read_pdf function).
     """
     if not pages:
-        print("No pages provided for storage. Rolling back document insertion.")
+        print("No pages provided for storage. Exiting...")
         return
     conn = None
-    try:
-        conn = psycopg.connect(
+
+
+    with psycopg.connect(
             host=DB_HOST,
             dbname=DB_NAME,
             user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT
-        )
-        cur = conn.cursor()
+            password=DB_PASSWORD
+    ) as conn:
+        with conn.cursor() as cur:
+            created_at = datetime.now()
 
-        created_at = datetime.now()
+            print(f"Storing document '{file_name}'...")
+            insert_document_query = """
+            INSERT INTO documents (name, created_at)
+            VALUES (%s, %s) RETURNING document_id;
+            """
+            cur.execute(insert_document_query, (file_name, created_at))
+            document_id = cur.fetchone()[0] 
+            print(f"Document stored with document_id: {document_id}")
 
-        print(f"Storing document '{file_name}'...")
-        insert_document_query = """
-        INSERT INTO documents (name, created_at)
-        VALUES (%s, %s) RETURNING document_id;
-        """
-        cur.execute(insert_document_query, (file_name, created_at))
-        document_id = cur.fetchone()[0] 
-        print(f"Document '{file_name}' stored with document_id: {document_id}")
+            print(f"Storing {len(pages)} pages into 'raw_pages' table...")
+            insert_page_query = """
+            INSERT INTO raw_pages (document_id, page_text, page_number, number_words, number_characters)
+            VALUES (%s, %s, %s, %s, %s);
+            """
+            
+            page_records = []
+            for page_info in pages:
+                if page_info['text']:
+                    page_records.append((
+                        document_id,
+                        page_info['text'],
+                        page_info['pageNumber'],
+                        page_info['numWords'],
+                        page_info['numCharacters']
+                    ))
+            
+            for record in tqdm(page_records, desc="Storing pages to DB", unit="page"):
+                 cur.execute(insert_page_query, record)
 
-        print(f"Storing {len(pages)} pages into 'raw_pages' table...")
-        insert_page_query = """
-        INSERT INTO raw_pages (document_id, page_text, page_number, number_words, number_characters)
-        VALUES (%s, %s, %s, %s, %s);
-        """
-        
-        page_records = []
-        for page_info in pages:
-            if page_info['text']:
-                page_records.append((
-                    document_id,
-                    page_info['text'],
-                    page_info['pageNumber'],
-                    page_info['numWords'],
-                    page_info['numCharacters']
-                ))
-        
-        for record in tqdm(page_records, desc="Storing pages to DB", unit="page"):
-             cur.execute(insert_page_query, record)
+                #conn.commit() # with context, commit are automatic
+    print(f"Successfully stored document")
 
-        conn.commit()
-        print(f"Successfully stored document '{file_name}' and all its pages.")
-
-    except psycopg.Error as e:
-        print(f"Database error: {e}")
-        if conn:
-            conn.rollback() 
-            print("Transaction rolled back.")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        if conn:
-            conn.rollback() # Rollback for other errors too
-            print("Transaction rolled back.")
-    finally:
-        if conn:
-            cur.close()
-            conn.close()
-            print("Database connection closed.")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -146,19 +131,11 @@ if __name__ == "__main__":
     
     if os.path.exists(pdf_file_path): 
         document_name = os.path.basename(pdf_file_path)
-
-        print(f"\n--- Starting PDF processing for '{document_name}' ---")
         
-        # Read the PDF pages
         extracted_pages = read_pdf(pdf_file_path)
 
         if extracted_pages:
-            # Store the document and its pages
             store_documents(document_name, extracted_pages)
-        else:
-            print(f"No pages extracted from '{pdf_file_path}'. Nothing to store.")
-        
-        print(f"--- Finished processing PDF: '{document_name}' ---")
 
     else:
         print(f"\nError: The specified PDF file '{pdf_file_path}' was not found. Please ensure the path is correct.")
