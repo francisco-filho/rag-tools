@@ -2,6 +2,7 @@ import os
 import sys
 import pypdf
 import psycopg
+import argparse
 from tqdm import tqdm
 from datetime import datetime
 from dotenv import load_dotenv
@@ -122,20 +123,107 @@ def store_documents(file_name, pages):
     print(f"Successfully stored document")
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("You should pass a name of a valid pdf file")
-        sys.exit(1)
-
-    pdf_file_path = sys.argv[1]
+def query(q, *args):
+    with psycopg.connect(
+            host=DB_HOST,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD
+    ) as conn:
+        with conn.cursor() as cur:
+            cur.execute(q, args)
+            return cur.fetchall()
     
-    if os.path.exists(pdf_file_path): 
-        document_name = os.path.basename(pdf_file_path)
-        
-        extracted_pages = read_pdf(pdf_file_path)
+    
+def retrieve_pages_from_db(document_id: int):
+    """
+    Retrieves all pages for a given document_id from the 'raw_pages' table.
 
-        if extracted_pages:
-            store_documents(document_name, extracted_pages)
+    Args:
+        document_id (int): The ID of the document to retrieve pages for.
 
-    else:
-        print(f"\nError: The specified PDF file '{pdf_file_path}' was not found. Please ensure the path is correct.")
+    Returns:
+        list: A list of dictionaries, where each dictionary contains page data
+              (text_id, document_id, page_text, page_number, number_words, number_characters).
+              Returns an empty list if no pages are found or on error.
+    """
+    pages_data = []
+    select_pages_query = """
+    SELECT text_id, document_id, page_text, page_number, number_words, number_characters
+    FROM raw_pages
+    WHERE document_id = %s
+    ORDER BY page_number;
+    """
+    
+    rows = query(select_pages_query, document_id)
+    
+    for row in rows:
+        pages_data.append({
+            "text_id": row[0],
+            "document_id": row[1],
+            "page_text": row[2],
+            "page_number": row[3],
+            "number_words": row[4],
+            "number_characters": row[5]
+        })
+    
+    return pages_data
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="PDF processing and database interaction script."
+    )
+
+    # Create a mutually exclusive group for --parse and --retrieve
+    group = parser.add_mutually_exclusive_group(required=True)
+
+    group.add_argument(
+        "--parse",
+        metavar="filepath",
+        help="Path to the PDF file to read and store in the database."
+    )
+
+    group.add_argument(
+        "--retrieve",
+        metavar="document_id",
+        type=int,
+        help="Document ID to retrieve all pages from the database."
+    )
+
+    args = parser.parse_args()
+
+    if args.parse:
+        pdf_file_path = args.parse
+        if os.path.exists(pdf_file_path): 
+            document_name = os.path.basename(pdf_file_path)
+            
+            print(f"\n--- Starting PDF processing for '{document_name}' ---")
+            extracted_pages = read_pdf(pdf_file_path)
+
+            if extracted_pages:
+                stored_doc_id = store_documents(document_name, extracted_pages)
+                if stored_doc_id:
+                    print(f"Document and pages stored successfully with Document ID: {stored_doc_id}")
+                else:
+                    print("Failed to store document and pages.")
+            else:
+                print(f"No pages extracted from '{pdf_file_path}'. Nothing to store.")
+            print(f"--- Finished processing PDF: '{document_name}' ---")
+        else:
+            print(f"\nError: The specified PDF file '{pdf_file_path}' was not found. Please ensure the path is correct.")
+            sys.exit(1)
+
+    elif args.retrieve:
+        doc_id_to_retrieve = args.retrieve
+        print(f"\n--- Retrieving Pages for Document ID {doc_id_to_retrieve} ---")
+        retrieved_data = retrieve_pages_from_db(doc_id_to_retrieve)
+        if retrieved_data:
+            print(f"\n--- Retrieved Pages for Document ID {doc_id_to_retrieve} ---")
+            for page_info in retrieved_data[:3]:
+                print(f"  Page {page_info['page_number']} (Text ID: {page_info['text_id']}):")
+                print(f"    Chars: {page_info['number_characters']}, Words: {page_info['number_words']}")
+                print("-" * 20)
+        else:
+            print(f"No pages found for Document ID {doc_id_to_retrieve} or an error occurred during retrieval.")
+
